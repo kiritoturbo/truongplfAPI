@@ -24,9 +24,17 @@ app.get('/api/clone-missing-products-batch', async (req, res) => {
   ];
 
   let domains = [];
-
+  const requestedDomain = req.query.domain?.toLowerCase();
+  
   try {
-    const wpResponse = await axios.get('https://truestore.us/wp-json/api/v1/getdomainaddproduct', {
+    // const wpResponse = await axios.get('https://truestore.us/wp-json/api/v1/getdomainaddproduct', {
+    //   timeout: 10000
+    // });
+    const getDomainApiUrl = requestedDomain
+    ? `https://truestore.us/wp-json/api/v1/getdomainaddproduct?domain=${encodeURIComponent(requestedDomain)}`
+    : `https://truestore.us/wp-json/api/v1/getdomainaddproduct`;
+
+    const wpResponse = await axios.get(getDomainApiUrl, {
       timeout: 10000
     });
     if (wpResponse.data.success && Array.isArray(wpResponse.data.data)) {
@@ -38,6 +46,7 @@ app.get('/api/clone-missing-products-batch', async (req, res) => {
     return res.status(500).json({ success: false, message: 'Lỗi gọi API domain', error: err.message });
   }
 
+  
   const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
   const report = [];
 
@@ -587,7 +596,7 @@ const getDateFormat = (inputDate) => {
 // Get combined sale report and Firebase PUB2
 app.get('/api/sale-firebase-summary', async (req, res) => {
   const { date, domain: domainQuery } = req.query;
-  if (!date) return res.status(400).json({ success: false, message: 'Missing date' });
+  if (!date) return res.status(400).json({ success: false, message: 'Missing date (ex: 10-07-2025)' });
   const { firebaseDate, saleReportDate, returnDate } = getDateFormat(date);
 
   try {
@@ -699,7 +708,7 @@ app.get('/api/sale-firebase-summary', async (req, res) => {
 // Get UTM / Camp-level tracking summary
 app.get('/api/sale-firebase-camp-summary', async (req, res) => {
   const { date, domain: domainQuery } = req.query;
-  if (!date || !domainQuery) return res.status(400).json({ success: false, message: 'Missing date or domain' });
+  if (!date || !domainQuery) return res.status(400).json({ success: false, message: 'Missing date or domain (ex: 10-07-2025)' });
 
   const { firebaseDate, saleReportDate, returnDate } = getDateFormat(date);
   const domainKey = domainQuery.replace(/\./g, 'DV');
