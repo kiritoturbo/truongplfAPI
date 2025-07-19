@@ -4,9 +4,44 @@ const cors = require('cors');
 const axios = require('axios');
 const { PromisePool } = require('@supercharge/promise-pool');
 const dayjs = require('dayjs'); 
+const mysql = require('mysql2/promise');
+const cron = require('node-cron');
+const moment = require('moment-timezone');
 
 const app = express();
 const PORT = process.env.PORT || 8886;
+// 🔧 Cấu hình
+// const DB_CONFIG = {
+//   host: 'localhost',
+//   user: 'root',
+//   password: '',
+//   database: 'truongplfnew',
+// };
+const DB_CONFIG = {
+  host: '113.192.8.160', // IP của VPS
+  user: 'admin_larvps',
+  password: 'OTM2NDIyZGYzODk5NTc2MjcyOTUwZTVi',
+  database: 'backuptruestoreusy2r_db',
+  port: 3306, // default của MySQL
+};
+
+// async function testMysqlConnection() {
+//   try {
+//     const connection = await mysql.createConnection(DB_CONFIG);
+
+//     console.log('✅ Kết nối MySQL thành công!');
+    
+//     const [rows] = await connection.execute('SELECT * FROM wp_salesreport where date="2025-01-11"');
+//     console.log(rows)
+//     console.log('⏰ Thời gian hiện tại từ MySQL:', rows[0].date);
+
+//     await connection.end();
+//   } catch (error) {
+//     console.error('❌ Kết nối MySQL thất bại:', error.message);
+//   }
+// }
+
+// testMysqlConnection();
 
 app.use(cors());
 app.use(bodyParser.json());
@@ -97,6 +132,155 @@ app.get('/api/clone-missing-products-batch', async (req, res) => {
     report
   });
 });
+app.post('/api/delete-all-products', async (req, res) => {
+  const { domain: requestedDomain } = req.body;
+
+  if (!requestedDomain) {
+    return res.status(400).json({ success: false, message: 'Missing domain' });
+  }
+
+  try {
+    // 1. Lấy madomain và domain từ API WordPress
+    const domainInfoRes = await axios.get(`https://truestore.us/wp-json/api/v1/getdomainaddproduct?domain=${encodeURIComponent(requestedDomain)}`);
+    const domainInfo = domainInfoRes.data?.data?.[0];
+
+    if (!domainInfo || !domainInfo.madomain) {
+      return res.status(404).json({ success: false, message: 'Không tìm thấy madomain cho domain này' });
+    }
+
+    const madomain = domainInfo.madomain;
+    const domain = domainInfo.domain;
+   
+
+    // 2. Lấy danh sách sản phẩm
+    const getProductsUrl = `https://api-catalog-service.truestore.vn/api/domain/${madomain}/products?limit=100`;
+    const productListRes = await axios.get(getProductsUrl);
+    const products = productListRes.data?.products || [];
+
+    if (products.length === 0) {
+      return res.json({ success: true, message: `Không có sản phẩm nào trong domain ${domain}` });
+    }
+
+    // 3. Xóa từng sản phẩm
+    let deletedCount = 0;
+    for (const product of products) {
+      if (!product.id) continue;
+
+      const deleteUrl = `https://api-catalog-service.truestore.vn/api/domain/${madomain}/products/${product.id}`;
+
+      try {
+        await axios.delete(deleteUrl, {
+          headers: {
+            'Content-Type': 'application/json',
+            // Authorization: 'Bearer your_token_here' // nếu có auth
+          }
+        });
+        deletedCount++;
+      } catch (err) {
+        console.error(`Lỗi xóa sản phẩm ID ${product.id}:`, err.message);
+      }
+    }
+
+    res.json({
+      success: true,
+      message: `Đã xóa ${deletedCount} sản phẩm trong domain ${domain}`,
+      domain,
+      deleted: deletedCount
+    });
+
+  } catch (error) {
+    console.error('Lỗi khi xử lý xóa:', error.message);
+    res.status(500).json({ success: false, message: 'Có lỗi xảy ra khi xử lý' });
+  }
+});
+
+function getYesterdayDateUTCMinus7() {
+  const nowInUTCMinus7 = moment.tz('Etc/GMT+7');
+
+  return nowInUTCMinus7.format('DD-MM-YYYY');
+}
+
+
+const API_URL = 'http://localhost:8886/api/sale-firebase-summary'; // 🔁 Đổi thành URL thật của bạn
+
+cron.schedule('*/1 * * * *', async () => {
+  const dateStr = getYesterdayDateUTCMinus7();
+// &domain=minimalistdaily.com
+  try {
+    const { data } = await axios.get(`${API_URL}?date=${dateStr}`);
+    if (!data.success || !Array.isArray(data.data)) {
+      console.log(`[${new Date().toISOString()}] ❌ Dữ liệu không hợp lệ`);
+      return;
+    }
+
+    const conn = await mysql.createConnection(DB_CONFIG);
+
+    for (const item of data.data) {
+      if (item.error) {
+        console.warn(`⚠️ Lỗi từ domain ${item.domain}: ${item.message}`);
+        continue;
+      }
+
+      const {
+        domain,
+        date,
+        orders = 0,
+        money = 0,
+        total_view = 0,
+        total_atc = 0,
+        total_checkout = 0,
+        device_mobile=0,
+        device_tablet=0,
+        device_pc=0,
+        currency = '',
+        products = [],
+      } = item;
+      
+
+      const stats = JSON.stringify(products);
+      const statsUTM = '';
+
+      const [existing] = await conn.execute(
+        'SELECT id FROM wp_salesreport WHERE domain = ? AND date = ?',
+        [domain, date]
+      );
+
+      if (existing.length === 0) {
+        await conn.execute(
+          `INSERT INTO wp_salesreport 
+            (domain, date, orders, money, view, atc, checkout, Stats, StatsUTM, currency,totalPC,totalTablet,totalMobile)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?,?,?,?)`,
+          [domain, date, orders, money, total_view, total_atc, total_checkout, stats, statsUTM, currency,device_pc,device_tablet,device_mobile]
+        );
+        console.log(`✅ Inserted: ${domain} (${date})`);
+      } else {
+        await conn.execute(
+          `UPDATE wp_salesreport SET 
+            orders = ?, money = ?, view = ?, atc = ?, checkout = ?, Stats = ?, StatsUTM = ?, currency = ?,totalPC= ?,totalTablet= ?,totalMobile= ?
+           WHERE domain = ? AND date = ?`,
+          [orders, money, total_view, total_atc, total_checkout, stats, statsUTM, currency,device_pc,device_tablet,device_mobile, domain, date]
+        );
+        console.log(`♻️ Updated: ${domain} (${date})`);
+      }
+    }
+
+    await conn.end();
+  } catch (err) {
+    console.error(`[${new Date().toISOString()}] ❌ Lỗi:`, err.message);
+  }
+}, {
+  timezone: 'UTC'
+});
+
+
+
+
+
+
+
+
+
+
 
 
 
