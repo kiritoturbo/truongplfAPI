@@ -11,19 +11,21 @@ const moment = require('moment-timezone');
 const app = express();
 const PORT = process.env.PORT || 8886;
 // 🔧 Cấu hình
-// const DB_CONFIG = {
-//   host: 'localhost',
-//   user: 'root',
-//   password: '',
-//   database: 'truongplfnew',
-// };
 const DB_CONFIG = {
-  host: '113.192.8.160', // IP của VPS
-  user: 'admin_larvps',
-  password: 'OTM2NDIyZGYzODk5NTc2MjcyOTUwZTVi',
-  database: 'backuptruestoreusy2r_db',
-  port: 3306, // default của MySQL
+  host: 'localhost',
+  user: 'root',
+  password: '',
+  database: 'truongplfnew',
+  charset: 'utf8mb4'
 };
+// const DB_CONFIG = {
+//   host: '113.192.8.160', // IP của VPS
+//   user: 'admin_larvps',
+//   password: 'OTM2NDIyZGYzODk5NTc2MjcyOTUwZTVi',
+//   database: 'backuptruestoreusy2r_db',
+//   port: 3306, // default của MySQL
+//  charset: 'utf8mb4'
+// };
 
 // async function testMysqlConnection() {
 //   try {
@@ -203,7 +205,7 @@ function getYesterdayDateUTCMinus7() {
 
 const API_URL = 'http://localhost:8886/api/sale-firebase-summary'; // 🔁 Đổi thành URL thật của bạn
 
-cron.schedule('*/1 * * * *', async () => {
+cron.schedule('*/2 * * * *', async () => {
   const dateStr = getYesterdayDateUTCMinus7();
 // &domain=minimalistdaily.com
   try {
@@ -238,7 +240,35 @@ cron.schedule('*/1 * * * *', async () => {
       
 
       const stats = JSON.stringify(products);
-      const statsUTM = '';
+      const utmUrl = `http://localhost:8886/api/sale-firebase-camp-summary?date=${dateStr}&domain=${domain}`;
+      let statsUTM = '';
+
+      try {
+        const { data: utmData } = await axios.get(utmUrl);
+        if (utmData.success && utmData.data) {
+          const mergedUTM = [];
+
+          // for (const platform of Object.keys(utmData.data)) {
+          //   const paid = utmData.data[platform]?.paid || {};
+          //   for (const level1 of Object.values(paid)) {
+          //     for (const level2 of Object.values(level1)) {
+          //       for (const level3 of Object.values(level2)) {
+          //         mergedUTM.push({
+          //           platform,
+          //           ...level3,
+          //         });
+          //       }
+          //     }
+          //   }
+          // }
+
+          statsUTM = JSON.stringify(utmData.data);
+        } else {
+          console.warn(`⚠️ Không có dữ liệu UTM hợp lệ cho domain ${domain}`);
+        }
+      } catch (e) {
+        console.warn(`⚠️ Lỗi lấy UTM cho ${domain}:`, e.message);
+      }
 
       const [existing] = await conn.execute(
         'SELECT id FROM wp_salesreport WHERE domain = ? AND date = ?',
@@ -266,7 +296,7 @@ cron.schedule('*/1 * * * *', async () => {
 
     await conn.end();
   } catch (err) {
-    console.error(`[${new Date().toISOString()}] ❌ Lỗi:`, err.message);
+    console.error(`[${new Date().toISOString()}] ❌ Lỗi: `, err.message);
   }
 }, {
   timezone: 'UTC'
