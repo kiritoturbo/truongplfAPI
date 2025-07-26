@@ -11,13 +11,13 @@ const moment = require('moment-timezone');
 const app = express();
 const PORT = process.env.PORT || 8886;
 // 🔧 Cấu hình
-const DB_CONFIG = {
-  host: 'localhost',
-  user: 'root',
-  password: '',
-  database: 'truongplfnew',
-  charset: 'utf8mb4'
-};
+// const DB_CONFIG = {
+//   host: 'localhost',
+//   user: 'root',
+//   password: '',
+//   database: 'truongplfnew',
+//   charset: 'utf8mb4'
+// };
 // const DB_CONFIG = {
 //   host: '113.192.8.160', // IP của VPS
 //   user: 'admin_larvps',
@@ -26,6 +26,14 @@ const DB_CONFIG = {
 //   port: 3306, // default của MySQL
 //  charset: 'utf8mb4'
 // };
+const DB_CONFIG = {
+  host: '172.105.122.151', // IP của VPS
+  user: 'admin_larvps',
+  password: 'Njg2NDFlYmJjMzRjMjIwMGIzMDkwMWU1',
+  database: 'taurisacomztv_db',
+  port: 3306, // default của MySQL
+ charset: 'utf8mb4'
+};
 
 // async function testMysqlConnection() {
 //   try {
@@ -33,7 +41,7 @@ const DB_CONFIG = {
 
 //     console.log('✅ Kết nối MySQL thành công!');
     
-//     const [rows] = await connection.execute('SELECT * FROM wp_salesreport where date="2025-01-11"');
+//     const [rows] = await connection.execute('SELECT * FROM wp_salesreport where date="2025-07-20"');
 //     console.log(rows)
 //     console.log('⏰ Thời gian hiện tại từ MySQL:', rows[0].date);
 
@@ -205,101 +213,182 @@ function getYesterdayDateUTCMinus7() {
 
 const API_URL = 'http://localhost:8886/api/sale-firebase-summary'; // 🔁 Đổi thành URL thật của bạn
 
-cron.schedule('*/2 * * * *', async () => {
-  const dateStr = getYesterdayDateUTCMinus7();
-// &domain=minimalistdaily.com
+// cron.schedule('*/1 * * * *', async () => {
+//   const dateStr = getYesterdayDateUTCMinus7();
+// // &domain=minimalistdaily.com
+//   try {
+//     const { data } = await axios.get(`${API_URL}?date=${dateStr}`);
+//     if (!data.success || !Array.isArray(data.data)) {
+//       console.log(`[${new Date().toISOString()}] ❌ Dữ liệu không hợp lệ`);
+//       return;
+//     }
+
+//     const conn = await mysql.createConnection(DB_CONFIG);
+
+//     for (const item of data.data) {
+//       try {
+//         if (item.error) {
+//           console.warn(`⚠️ Lỗi từ domain ${item.domain}: ${item.message}`);
+//           continue;
+//         }
+
+//         const {
+//           domain,
+//           date,
+//           orders = 0,
+//           money = 0,
+//           total_view = 0,
+//           total_atc = 0,
+//           total_checkout = 0,
+//           device_mobile=0,
+//           device_tablet=0,
+//           device_pc=0,
+//           currency = '',
+//           products = [],
+//         } = item;
+        
+
+//         const stats = JSON.stringify(products);
+//         const utmUrl = `http://localhost:8886/api/sale-firebase-camp-summary?date=${dateStr}&domain=${domain}`;
+//         let statsUTM = '';
+
+//         try {
+//           const { data: utmData } = await axios.get(utmUrl);
+//           if (utmData.success && utmData.data) {
+//             const mergedUTM = [];
+
+//             // for (const platform of Object.keys(utmData.data)) {
+//             //   const paid = utmData.data[platform]?.paid || {};
+//             //   for (const level1 of Object.values(paid)) {
+//             //     for (const level2 of Object.values(level1)) {
+//             //       for (const level3 of Object.values(level2)) {
+//             //         mergedUTM.push({
+//             //           platform,
+//             //           ...level3,
+//             //         });
+//             //       }
+//             //     }
+//             //   }
+//             // }
+
+//             statsUTM = JSON.stringify(utmData.data);
+//           } else {
+//             console.warn(`⚠️ Không có dữ liệu UTM hợp lệ cho domain ${domain}`);
+//           }
+//         } catch (e) {
+//           console.warn(`⚠️ Lỗi lấy UTM cho ${domain}:`, e.message);
+//         }
+
+//         const [existing] = await conn.execute(
+//           'SELECT id FROM wp_salesreport WHERE domain = ? AND date = ?',
+//           [domain, date]
+//         );
+
+//         if (existing.length === 0) {
+//           await conn.execute(
+//             `INSERT INTO wp_salesreport 
+//               (domain, date, orders, money, view, atc, checkout, Stats, StatsUTM, currency,totalPC,totalTablet,totalMobile)
+//             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?,?,?,?)`,
+//             [domain, date, orders, money, total_view, total_atc, total_checkout, stats, statsUTM, currency,device_pc,device_tablet,device_mobile]
+//           );
+//           console.log(`✅ Inserted: ${domain} (${date})`);
+//         } else {
+//           await conn.execute(
+//             `UPDATE wp_salesreport SET 
+//               orders = ?, money = ?, view = ?, atc = ?, checkout = ?, Stats = ?, StatsUTM = ?, currency = ?,totalPC= ?,totalTablet= ?,totalMobile= ?
+//             WHERE domain = ? AND date = ?`,
+//             [orders, money, total_view, total_atc, total_checkout, stats, statsUTM, currency,device_pc,device_tablet,device_mobile, domain, date]
+//           );
+//           console.log(`♻️ Updated: ${domain} (${date})`);
+//         }
+//       } catch (domainErr) {
+//         console.error(`❌ Lỗi khi xử lý domain ${item.domain}: ${domainErr.message}`);
+//       }
+//     }
+
+//     await conn.end();
+//   } catch (err) {
+//     console.error(`[${new Date().toISOString()}] ❌ Lỗi: `, err.message);
+//   }
+// }, {
+//   timezone: 'UTC'
+// });
+
+
+const UTM_URL = 'http://localhost:8886/api/sale-firebase-camp-summary';
+
+// -------------------- API để lưu theo ngày --------------------
+app.get('/api/run-sale-report', async (req, res) => {
+  const dateStr = req.query.date || getYesterdayDateUTCMinus7();
+
   try {
     const { data } = await axios.get(`${API_URL}?date=${dateStr}`);
     if (!data.success || !Array.isArray(data.data)) {
-      console.log(`[${new Date().toISOString()}] ❌ Dữ liệu không hợp lệ`);
-      return;
+      return res.status(400).json({ success: false, message: '❌ Dữ liệu không hợp lệ từ API' });
     }
 
     const conn = await mysql.createConnection(DB_CONFIG);
 
     for (const item of data.data) {
-      if (item.error) {
-        console.warn(`⚠️ Lỗi từ domain ${item.domain}: ${item.message}`);
-        continue;
-      }
-
-      const {
-        domain,
-        date,
-        orders = 0,
-        money = 0,
-        total_view = 0,
-        total_atc = 0,
-        total_checkout = 0,
-        device_mobile=0,
-        device_tablet=0,
-        device_pc=0,
-        currency = '',
-        products = [],
-      } = item;
-      
-
-      const stats = JSON.stringify(products);
-      const utmUrl = `http://localhost:8886/api/sale-firebase-camp-summary?date=${dateStr}&domain=${domain}`;
-      let statsUTM = '';
-
       try {
-        const { data: utmData } = await axios.get(utmUrl);
-        if (utmData.success && utmData.data) {
-          const mergedUTM = [];
-
-          // for (const platform of Object.keys(utmData.data)) {
-          //   const paid = utmData.data[platform]?.paid || {};
-          //   for (const level1 of Object.values(paid)) {
-          //     for (const level2 of Object.values(level1)) {
-          //       for (const level3 of Object.values(level2)) {
-          //         mergedUTM.push({
-          //           platform,
-          //           ...level3,
-          //         });
-          //       }
-          //     }
-          //   }
-          // }
-
-          statsUTM = JSON.stringify(utmData.data);
-        } else {
-          console.warn(`⚠️ Không có dữ liệu UTM hợp lệ cho domain ${domain}`);
+        if (item.error) {
+          console.warn(`⚠️ Domain lỗi: ${item.domain} - ${item.message}`);
+          continue;
         }
-      } catch (e) {
-        console.warn(`⚠️ Lỗi lấy UTM cho ${domain}:`, e.message);
-      }
 
-      const [existing] = await conn.execute(
-        'SELECT id FROM wp_salesreport WHERE domain = ? AND date = ?',
-        [domain, date]
-      );
+        const {
+          domain, date, orders = 0, money = 0,
+          total_view = 0, total_atc = 0, total_checkout = 0,
+          device_mobile = 0, device_tablet = 0, device_pc = 0,
+          currency = '', products = [],
+        } = item;
 
-      if (existing.length === 0) {
-        await conn.execute(
-          `INSERT INTO wp_salesreport 
-            (domain, date, orders, money, view, atc, checkout, Stats, StatsUTM, currency,totalPC,totalTablet,totalMobile)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?,?,?,?)`,
-          [domain, date, orders, money, total_view, total_atc, total_checkout, stats, statsUTM, currency,device_pc,device_tablet,device_mobile]
+        const stats = JSON.stringify(products);
+        const utmApiUrl = `${UTM_URL}?date=${dateStr}&domain=${domain}`;
+        let statsUTM = '';
+
+        try {
+          const { data: utmData } = await axios.get(utmApiUrl);
+          if (utmData.success && utmData.data) {
+            statsUTM = JSON.stringify(utmData.data);
+          }
+        } catch (utmErr) {
+          console.warn(`⚠️ Lỗi lấy UTM cho ${domain}: ${utmErr.message}`);
+        }
+
+        const [existing] = await conn.execute(
+          'SELECT id FROM wp_salesreport WHERE domain = ? AND date = ?',
+          [domain, date]
         );
-        console.log(`✅ Inserted: ${domain} (${date})`);
-      } else {
-        await conn.execute(
-          `UPDATE wp_salesreport SET 
-            orders = ?, money = ?, view = ?, atc = ?, checkout = ?, Stats = ?, StatsUTM = ?, currency = ?,totalPC= ?,totalTablet= ?,totalMobile= ?
-           WHERE domain = ? AND date = ?`,
-          [orders, money, total_view, total_atc, total_checkout, stats, statsUTM, currency,device_pc,device_tablet,device_mobile, domain, date]
-        );
-        console.log(`♻️ Updated: ${domain} (${date})`);
+
+        if (existing.length === 0) {
+          await conn.execute(
+            `INSERT INTO wp_salesreport 
+              (domain, date, orders, money, view, atc, checkout, Stats, StatsUTM, currency, totalPC, totalTablet, totalMobile)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [domain, date, orders, money, total_view, total_atc, total_checkout, stats, statsUTM, currency, device_pc, device_tablet, device_mobile]
+          );
+          console.log(`✅ Inserted: ${domain} (${date})`);
+        } else {
+          await conn.execute(
+            `UPDATE wp_salesreport SET 
+              orders = ?, money = ?, view = ?, atc = ?, checkout = ?, Stats = ?, StatsUTM = ?, currency = ?, totalPC = ?, totalTablet = ?, totalMobile = ?
+            WHERE domain = ? AND date = ?`,
+            [orders, money, total_view, total_atc, total_checkout, stats, statsUTM, currency, device_pc, device_tablet, device_mobile, domain, date]
+          );
+          console.log(`♻️ Updated: ${domain} (${date})`);
+        }
+      } catch (domainErr) {
+        console.error(`❌ Lỗi xử lý domain ${item.domain}: ${domainErr.message}`);
       }
     }
 
     await conn.end();
+    res.json({ success: true, message: `✅ Xử lý thành công dữ liệu ngày ${dateStr}` });
   } catch (err) {
-    console.error(`[${new Date().toISOString()}] ❌ Lỗi: `, err.message);
+    console.error('❌ Lỗi:', err.message);
+    res.status(500).json({ success: false, message: err.message });
   }
-}, {
-  timezone: 'UTC'
 });
 
 
